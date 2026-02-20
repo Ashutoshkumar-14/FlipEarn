@@ -1,63 +1,46 @@
-import { CheckCircle, ChevronDown, ChevronUp, Copy, Currency, Loader2Icon } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronUp, Copy, Loader2Icon } from 'lucide-react';
 import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast';
-import { platformIcons } from '../utils/platformIcons'; 
+import { platformIcons } from '../utils/platformIcons';
 import { format } from 'date-fns';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import api from '../configs/axios';
 
 const MyOrders = () => {
+  const { user, isLoaded } = useUser()
+  const { getToken } = useAuth()
+
   const currency = import.meta.env.VITE_CURRENCY || '$';
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
 
-  const dummyOrders = [
-    {
-      id: '1',
-      amount: 2500,
-      createdAt: '2025-01-15T10:30:00Z',
-      listing: {
-        title: 'Premium Travel Instagram',
-        username: 'travelwithme',
-        platform: 'instagram',
-        price: 2500,
-        verified: true,
-        monetized: true
-      },
-      credential: [
-        { name: 'Email', value: 'test@example.com', type: 'email' },
-        { name: 'Password', value: 'mypassword123', type: 'password' }
-      ]
-    },
-    {
-      id: '2',
-      amount: 5000,
-      createdAt: '2025-02-10T14:20:00Z',
-      listing: {
-        title: 'Gaming YouTube Channel',
-        username: 'gamerpro',
-        platform: 'youtube',
-        price: 5000,
-        verified: true,
-        monetized: false
-      },
-      credential: [
-        { name: 'Email', value: 'gamer@example.com', type: 'email' },
-        { name: 'Password', value: 'securepass456', type: 'password' }
-      ]
-    }
-  ];
-
   const fetchOrders = async () => {
-    setOrders(dummyOrders); 
-    setLoading(false);
+    try {
+      setLoading(true)
+      const token = await getToken();
+      const { data } = await api.get('/api/listing/user-orders', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      setOrders(data.orders)
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || 'An error occurred')
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
-  
+
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    if (user && isLoaded) {
+      fetchOrders()
+    }
+  }, [isLoaded, user])
 
   const mask = (val, type) => {
-    if(!val && val !== 0) return "-";
+    if (!val && val !== 0) return "-";
     return type.toLowerCase() === "password" ? ".".repeat(8) : String(val)
   }
 
@@ -66,23 +49,23 @@ const MyOrders = () => {
       await navigator.clipboard.writeText(txt);
       toast.success("Copied to clipboard!");
     } catch (error) {
-      toast.error(" Copy Failed");
+      toast.error("Copy Failed");
     }
   }
 
-  if(loading){
+  if (loading) {
     return (
       <div className='h-[80vh] flex items-center justify-center'>
-        <Loader2Icon className='size-7 animate-spin text-indigo-600'/>
+        <Loader2Icon className='size-7 animate-spin text-indigo-600' />
       </div>
     )
   }
 
-  if(!orders.length) {
+  if (!orders.length) {
     return (
       <div className="px-4 md:px-16 lg:px-24 xl:px-32">
         <div className="max-w-2xl mx-auto mt-14 bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <h3 className="text-lg font-semibold">No Orders yet</h3>
+          <h3 className="text-lg font-semibold">No Orders Yet</h3>
           <p className="text-sm text-gray-500 mt-2">You haven't purchased any listings yet.</p>
         </div>
       </div>
@@ -105,7 +88,7 @@ const MyOrders = () => {
                   {platformIcons[listing.platform]}
                 </div>
                 <div className='flex-1'>
-                  <div className='flex items-start justify-between gap-4'> 
+                  <div className='flex items-start justify-between gap-4'>
                     <div>
                       <h3 className='text-lg font-semibold'>{listing.title}</h3>
                       <p className='text-sm text-gray-500 mt-1'>
@@ -114,7 +97,7 @@ const MyOrders = () => {
                       <div className='flex gap-2 mt-2'>
                         {listing.verified && (
                           <span className='flex items-center text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md'>
-                            <CheckCircle className='w-3 h-3 mr-1'/>Verified
+                            <CheckCircle className='w-3 h-3 mr-1' />Verified
                           </span>
                         )}
                         {listing.monetized && (
@@ -137,18 +120,18 @@ const MyOrders = () => {
                 </div>
               </div>
               <div className='flex flex-col gap-2 items-end'>
-                <button 
-                  onClick={() => setExpandedId((p) => (p === id ? null : id))} 
+                <button
+                  onClick={() => setExpandedId((p) => (p === id ? null : id))}
                   className='flex items-center gap-2 bg-white border border-gray-200 px-3 py-2 rounded hover:shadow text-sm'
                   aria-expanded={isExpanded}
                 >
                   {isExpanded ? (
                     <>
-                      <ChevronUp className='size-4'/> Hide Credentials
+                      <ChevronUp className='size-4' /> Hide Credentials
                     </>
                   ) : (
                     <>
-                      <ChevronDown className='size-4'/> View Credentials
+                      <ChevronDown className='size-4' /> View Credentials
                     </>
                   )}
                 </button>
@@ -171,15 +154,15 @@ const MyOrders = () => {
                           <code className='text-sm font-mono'>
                             {mask(cred.value, cred.type)}
                           </code>
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               copy(cred.value);
-                            }} 
-                            className='px-2 py-1 text-xs bg-white border border-gray-200 rounded hover:shadow' 
+                            }}
+                            className='px-2 py-1 text-xs bg-white border border-gray-200 rounded hover:shadow'
                             title="Copy Credential"
                           >
-                            <Copy className='size-4'/>
+                            <Copy className='size-4' />
                           </button>
                         </div>
                       </div>
@@ -190,7 +173,7 @@ const MyOrders = () => {
             </div>
           )
         })}
-      </div>   
+      </div>
     </div>
   )
 }
